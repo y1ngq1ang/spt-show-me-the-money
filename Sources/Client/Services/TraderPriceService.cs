@@ -20,6 +20,24 @@ public class TraderPriceService
 
     private TraderPriceService() { }
 
+    /// <summary>
+    /// Warms every trader's supply data. Scheduled by <see cref="Patches.MenuReadyPatch" /> once the
+    /// main menu is up; doing it any earlier stalls the menu.
+    /// </summary>
+    public static void PrefetchSupplyData()
+    {
+        try
+        {
+            foreach (Trader trader in SptSession.Session.Traders)
+                trader.UpdateSupplyData();
+        }
+        catch (Exception exception)
+        {
+            PluginContextHolder.Current.SptLogger?
+                .LogException(exception);
+        }
+    }
+
     public bool GetBestTraderPrice(TradeItem tradeItem)
     {
         TradePrice? highestTraderPrice = null;
@@ -27,23 +45,27 @@ public class TraderPriceService
         {
             if (IsTraderAvailable(trader))
             {
-                Trader.ItemPrice? singleObjectPrice = null;
-                Trader.ItemPrice? totalPrice = null;
-
-                bool hasPrice = TryGetTraderUserItemPrice(trader, tradeItem, out singleObjectPrice, out totalPrice);
-                if (hasPrice && (!PluginContextHolder.Current!.Configuration!.RoublesOnly.IsEnabled() || singleObjectPrice!.Value.CurrencyId.ToString() == SptConstants.CurrencyIds.Roubles))
+                // Self-healing path in case the menu hook did not run. GetUserItemPrice needs the
+                // supply data, so there is nothing to compute until it arrives.
+                if (trader._supplyData is null)
                 {
-                    MongoID? currencyId = singleObjectPrice!.Value.CurrencyId;
-                    double? currencyCourse = GetCurrencyCourse(trader, currencyId);
-                    double itemPrice = singleObjectPrice.Value.Amount;
+                    trader.UpdateSupplyData();
+                    continue;
+                }
 
-                    int? totalItemPrice = totalPrice != null ? totalPrice.Value.Amount : null;
+                bool hasPrice = TryGetTraderUserItemPrice(trader, tradeItem, out Trader.ItemPrice? singleObjectPrice, out Trader.ItemPrice? totalPrice);
+                if (hasPrice && (!PluginContextHolder.Current!.Configuration!.RoublesOnly.IsEnabled() || PaysInRoubles(singleObjectPrice!)))
+                {
+                    MongoID? currencyId = GetCurrencyId(singleObjectPrice!);
+                    double? currencyCourse = GetCurrencyCourse(trader, currencyId);
+
+                    int? totalItemPrice = totalPrice?.Amount;
 
                     TradePrice traderPrice = new(
                         tradeItem,
                         trader.Id,
                         trader.LocalizedName,
-                        singleObjectPrice.Value.Amount,
+                        singleObjectPrice!.Amount,
                         totalItemPrice,
                         currencyCourse,
                         currencyId
@@ -70,6 +92,11 @@ public class TraderPriceService
         return isAvailable && !isIgnored;
     }
 
+    /// <remarks>
+    /// <see cref="Trader.GetUserItemPrice(Item)" /> hands back an <c>Il2CppSystem.Nullable&lt;ItemPrice&gt;</c>
+    /// rather than a real <c>ItemPrice?</c>, so the two are unwrapped here and the rest of the service can
+    /// keep treating "no price" as <see langword="null" />.
+    /// </remarks>
     private static bool TryGetTraderUserItemPrice(Trader trader, TradeItem tradeItem,
         out Trader.ItemPrice? singleObjectPrice, out Trader.ItemPrice? totalPrice)
     {
@@ -80,9 +107,14 @@ public class TraderPriceService
         {
             Item singleItem = tradeItem.Item.CloneForPricing();
             singleItem.StackObjectsCount = 1;
-            singleObjectPrice = trader.GetUserItemPrice(singleItem);
 
-            totalPrice = trader.GetUserItemPrice(tradeItem.Item);
+            Il2CppSystem.Nullable<Trader.ItemPrice> singleResult = trader.GetUserItemPrice(singleItem);
+            if (singleResult.HasValue)
+                singleObjectPrice = singleResult.Value;
+
+            Il2CppSystem.Nullable<Trader.ItemPrice> totalResult = trader.GetUserItemPrice(tradeItem.Item);
+            if (totalResult.HasValue)
+                totalPrice = totalResult.Value;
         }
         catch (Exception)
         {
@@ -93,15 +125,26 @@ public class TraderPriceService
         return singleObjectPrice is not null;
     }
 
+    private static bool PaysInRoubles(Trader.ItemPrice price)
+    {
+        return price.CurrencyId.HasValue
+            && price.CurrencyId.Value.ToString() == SptConstants.CurrencyIds.Roubles;
+    }
+
+    private static MongoID? GetCurrencyId(Trader.ItemPrice price)
+    {
+        return price.CurrencyId.HasValue ? price.CurrencyId.Value : null;
+    }
+
     private static double? GetCurrencyCourse(Trader trader, MongoID? currencyId)
     {
-        if (!currencyId.HasValue)
+        if (currencyId is null)
             return null;
 
-        if (trader.CurrencyCourses != null && trader.CurrencyCourses.TryGetValue(currencyId.Value.ToString(), out double course))
+        if (trader.CurrencyCourses != null && trader.CurrencyCourses.TryGetValue(currencyId.ToString(), out double course))
             return course;
 
-        double? result = trader.GetSupplyData()?.CurrencyCourses[currencyId.Value];
+        double? result = trader.GetSupplyData()?.CurrencyCourses[currencyId.ToString()];
 
         return result ?? 1;
     }

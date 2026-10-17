@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <!-- Path to your SPT 4.1 install (the folder that contains EscapeFromTarkov.exe). -->
-    <SptRoot>C:\Path\To\SPT</SptRoot>
+    <!-- Path to your SPT 5.0 install (the folder that contains EscapeFromTarkov.exe). -->
+    <SptRoot>C:\Path\To\SPT-5.0</SptRoot>
   </PropertyGroup>
 </Project>

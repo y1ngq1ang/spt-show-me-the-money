@@ -1,6 +1,6 @@
 using EFT.UI.DragAndDrop;
 using HarmonyLib;
-using SPT.Reflection.Patching;
+using SPTushonka.Reflection.Patching;
 using SwiftXP.SPT.ShowMeTheMoney.Client.Contexts.Holders;
 using System.Reflection;
 using UnityEngine.EventSystems;
@@ -15,6 +15,7 @@ public class GridItemOnPointerEnterPatch : ModulePatch
     [PatchPrefix]
     static void PatchPrefix(GridItemView __instance, PointerEventData eventData)
     {
+        Diagnostics.ReportOnce(nameof(GridItemOnPointerEnterPatch), "GridItemView.OnPointerEnter prefix fired");
         PluginContextHolder.SetHoveredItem(__instance?.Item);
     }
 }

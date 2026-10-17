@@ -7,12 +7,13 @@ namespace SwiftXP.SPT.ShowMeTheMoney.Client.Contexts;
 public record PluginContext
 {
     public PluginContext(SimpleSptLogger? simpleSptLogger, PluginConfiguration? pluginConfiguration,
-        Item? hoveredItem, bool disableTemporary)
+        Item? hoveredItem, bool disableTemporary, bool isInInventoryScreen)
     {
         SptLogger = simpleSptLogger;
         Configuration = pluginConfiguration;
         HoveredItem = hoveredItem;
         DisableTemporary = disableTemporary;
+        IsInInventoryScreen = isInInventoryScreen;
     }
 
     public SimpleSptLogger? SptLogger { get; }
@@ -22,4 +23,9 @@ public record PluginContext
     public Item? HoveredItem { get; }
 
     public bool DisableTemporary { get; }
+
+    /// <summary>
+    /// Whether the out-of-raid inventory screen is open. Quick-sell only works from there.
+    /// </summary>
+    public bool IsInInventoryScreen { get; }
 }

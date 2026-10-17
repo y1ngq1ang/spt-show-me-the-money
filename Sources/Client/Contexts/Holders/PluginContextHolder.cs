@@ -6,7 +6,7 @@ namespace SwiftXP.SPT.ShowMeTheMoney.Client.Contexts.Holders;
 
 public static class PluginContextHolder
 {
-    private static volatile PluginContext s_currentData = new(null, null, null, false);
+    private static volatile PluginContext s_currentData = new(null, null, null, false, false);
 
     public static PluginContext Current
     {
@@ -15,19 +15,25 @@ public static class PluginContextHolder
 
     public static void SetDisableTemporary(bool disableTemporary)
     {
-        PluginContext pluginContextData = new(Current.SptLogger, Current.Configuration, Current.HoveredItem, disableTemporary);
+        PluginContext pluginContextData = new(Current.SptLogger, Current.Configuration, Current.HoveredItem, disableTemporary, Current.IsInInventoryScreen);
         System.Threading.Interlocked.Exchange(ref s_currentData, pluginContextData);
     }
 
     public static void SetHoveredItem(Item? hoveredItem)
     {
-        PluginContext pluginContextData = new(Current.SptLogger, Current.Configuration, hoveredItem, Current.DisableTemporary);
+        PluginContext pluginContextData = new(Current.SptLogger, Current.Configuration, hoveredItem, Current.DisableTemporary, Current.IsInInventoryScreen);
+        System.Threading.Interlocked.Exchange(ref s_currentData, pluginContextData);
+    }
+
+    public static void SetIsInInventoryScreen(bool isInInventoryScreen)
+    {
+        PluginContext pluginContextData = new(Current.SptLogger, Current.Configuration, Current.HoveredItem, Current.DisableTemporary, isInInventoryScreen);
         System.Threading.Interlocked.Exchange(ref s_currentData, pluginContextData);
     }
 
     public static void SetContextInstances(SimpleSptLogger simpleSptLogger, PluginConfiguration pluginConfiguration)
     {
-        PluginContext pluginContextData = new(simpleSptLogger, pluginConfiguration, Current.HoveredItem, Current.DisableTemporary);
+        PluginContext pluginContextData = new(simpleSptLogger, pluginConfiguration, Current.HoveredItem, Current.DisableTemporary, Current.IsInInventoryScreen);
         System.Threading.Interlocked.Exchange(ref s_currentData, pluginContextData);
     }
 }

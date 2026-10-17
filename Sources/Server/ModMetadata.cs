@@ -11,7 +11,7 @@ public record ModMetadata : IModMetadata
     public string Author { get; init; } = "SwiftXP";
     public List<string>? Contributors { get; init; } = [];
     public SemanticVersioning.Version Version { get; init; } = new(AppMetadata.Version);
-    public SemanticVersioning.Range SptVersion { get; init; } = new("~4.1.0");
+    public SemanticVersioning.Range SptVersion { get; init; } = new("~5.0.0");
     public bool HasPrepatcher { get; init; }
 
     public List<string>? Incompatibilities { get; init; } = [];

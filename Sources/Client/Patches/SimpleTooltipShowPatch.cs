@@ -2,7 +2,7 @@ using EFT;
 using EFT.InventoryLogic;
 using EFT.UI;
 using EFT.UI.Ragfair;
-using SPT.Reflection.Patching;
+using SPTushonka.Reflection.Patching;
 using SwiftXP.SPT.ShowMeTheMoney.Client.Contexts;
 using System.Reflection;
 using UnityEngine;
@@ -26,17 +26,27 @@ public class SimpleTooltipShowPatch : ModulePatch
 {
     private static string? s_patchText;
 
+    // FirstOrDefault rather than an index: the predicate runs against every method named "Show" and
+    // a parameterless overload would otherwise throw inside the search, taking the whole plugin down
+    // with it.
     protected override MethodBase GetTargetMethod() =>
-        AccessTools.FirstMethod(typeof(SimpleTooltip), x => x.Name == nameof(SimpleTooltip.Show) && x.GetParameters()[0].Name == "text");
+        AccessTools.FirstMethod(
+            typeof(SimpleTooltip),
+            x => x.Name == nameof(SimpleTooltip.Show) && x.GetParameters().FirstOrDefault()?.Name == "text");
 
     [PatchPrefix]
 #pragma warning disable CA1707 // Identifiers should not contain underscores
 
-    public static void PatchPrefix(SimpleTooltip __instance, ref string text, Vector2? offset, ref float delay, float? maxWidth)
+    // Only the parameters this prefix actually uses are declared. Harmony binds them by name, so a
+    // declared-but-unused "offset"/"maxWidth" would additionally have to match the target's
+    // Il2CppSystem.Nullable<...> interop types instead of the plain Vector2?/float? it used to have.
+    public static void PatchPrefix(SimpleTooltip __instance, ref string text, ref float delay)
 #pragma warning restore CA1707 // Identifiers should not contain underscores
     {
         try
         {
+            Diagnostics.ReportOnce(nameof(SimpleTooltipShowPatch), "SimpleTooltip.Show prefix fired");
+
             if (!AreTooltipRequirementsMeet(text))
                 return;
 
@@ -77,7 +87,7 @@ public class SimpleTooltipShowPatch : ModulePatch
                 if (instanceText is not null)
                 {
                     bool success = TryShowPriceInformation(out string? priceInformationText, out double? _);
-                    if (success)
+                    if (success && s_patchText is not null)
                     {
                         string newTooltipText = instanceText.Replace(s_patchText, priceInformationText);
 
@@ -136,7 +146,7 @@ public class SimpleTooltipShowPatch : ModulePatch
 
         TooltipFontSize fontSize = PluginContextHolder.Current!.Configuration!.FontSize.GetValue();
         if (fontSize != TooltipFontSize.Normal)
-            textToAppendToTooltip.Append($"<size={(int)fontSize}%>");
+            textToAppendToTooltip.Append(CultureInfo.InvariantCulture, $"<size={(int)fontSize}%>");
 
         if (PluginContextHolder.Current!.Configuration!.RenderInItalics.IsEnabled())
             textToAppendToTooltip.Append("<i>");
@@ -164,7 +174,7 @@ public class SimpleTooltipShowPatch : ModulePatch
         return highestComparePrice is not null;
     }
 
-    private static void ShowTradeAndFleaPriceInformation(Item item, ref StringBuilder textToAppendToTooltip, out double? highestComparePrice)
+    internal static void ShowTradeAndFleaPriceInformation(Item item, ref StringBuilder textToAppendToTooltip, out double? highestComparePrice)
     {
         highestComparePrice = null;
 
@@ -243,7 +253,7 @@ public class SimpleTooltipShowPatch : ModulePatch
         }
 
         if (modsPrice > 0)
-            textToAppendToTooltip.Append($"<br>{"APCTab/Mods".Localized(null)}: {FormatPrice(modsPrice)}");
+            textToAppendToTooltip.Append(CultureInfo.InvariantCulture, $"<br>{"APCTab/Mods".Localized(null)}: {FormatPrice(modsPrice)}");
     }
 
     private static void ShowArmorPlatesPriceInformation(Item armorItem, ref StringBuilder textToAppendToTooltip)
@@ -289,7 +299,7 @@ public class SimpleTooltipShowPatch : ModulePatch
         }
 
         if (platesPrice > 0)
-            textToAppendToTooltip.Append($"<br>{"67600929bd0a0549d70993f6 ShortName".Localized(null)}: {FormatPrice(platesPrice)}");
+            textToAppendToTooltip.Append(CultureInfo.InvariantCulture, $"<br>{"67600929bd0a0549d70993f6 ShortName".Localized(null)}: {FormatPrice(platesPrice)}");
     }
 
     private static void SetColorCoding(ref string text, string textToReplace, double? highestComparePrice)
@@ -398,7 +408,7 @@ public class SimpleTooltipShowPatch : ModulePatch
         delay = (float)PluginContextHolder.Current!.Configuration!.ToolTipDelay.GetValue();
     }
 
-    private static bool ItemMeetsRequirements(Item item)
+    internal static bool ItemMeetsRequirements(Item item)
     {
         return SptSession.Session.Profile.Examined(item)
             && (!item.IsContainer || (item.IsContainer && item.IsEmpty()))
@@ -407,15 +417,13 @@ public class SimpleTooltipShowPatch : ModulePatch
 
     private static string? GetTextOfInstance()
     {
-        FieldInfo? fieldInfo = typeof(SimpleTooltip)
-            .GetField("_label", BindingFlags.NonPublic | BindingFlags.Instance);
-
-        TextMeshProUGUI? textMesh = fieldInfo?.GetValue(Instance) as TextMeshProUGUI;
-
-        return textMesh?.text ?? null;
+        // The 4.x build reached _label through reflection because it was a private field. Under
+        // IL2CPP the interop proxy surfaces game fields as properties, so GetField finds nothing
+        // and the text would silently never be refreshed.
+        return Instance?._label?.text;
     }
 
-    private static void ShowPrice(TradeItem tradeItem, TradePrice tradePriceA, TradePrice? tradePriceB, StringBuilder text, bool isCombinedPrice = false)
+    internal static void ShowPrice(TradeItem tradeItem, TradePrice tradePriceA, TradePrice? tradePriceB, StringBuilder text, bool isCombinedPrice = false)
     {
         text.Append("<br>");
 
@@ -431,9 +439,9 @@ public class SimpleTooltipShowPatch : ModulePatch
         }
 
         if (isBestPrice)
-            text.Append($"<color=#{GetBestTradeColor()}>{tradePriceA.TraderName}</color>: ");
+            text.Append(CultureInfo.InvariantCulture, $"<color=#{GetBestTradeColor()}>{tradePriceA.TraderName}</color>: ");
         else
-            text.Append($"{tradePriceA.TraderName}: ");
+            text.Append(CultureInfo.InvariantCulture, $"{tradePriceA.TraderName}: ");
 
         if ((tradeItem.ItemSlotCount > 1 || tradeItem.Item.StackObjectsCount > 1) && PluginContextHolder.Current!.Configuration!.ShowPricePerSlot.IsEnabled())
         {
@@ -445,7 +453,7 @@ public class SimpleTooltipShowPatch : ModulePatch
                 SetColorCoding(ref slotPrice, slotPrice, tradePriceA.GetComparePriceInRouble());
             }
 
-            text.Append($"{slotPrice} {"Total".Localized(null)}: ");
+            text.Append(CultureInfo.InvariantCulture, $"{slotPrice} {"Total".Localized(null)}: ");
         }
 
         string totalPrice = FormatPrice(tradePriceA.GetTotalPrice(), tradePriceA.CurrencySymbol);
@@ -465,7 +473,7 @@ public class SimpleTooltipShowPatch : ModulePatch
             text.Append(" (+)");
 
         if (PluginContextHolder.Current!.Configuration!.ShowFleaTax && tradePriceA.HasTax())
-            text.Append($" {"ragfair/Fee".Localized(null)}: {FormatPrice(tradePriceA.GetTotalTax())}");
+            text.Append(CultureInfo.InvariantCulture, $" {"ragfair/Fee".Localized(null)}: {FormatPrice(tradePriceA.GetTotalTax())}");
     }
 
     private static string GetBestTradeColor()

@@ -366,5 +366,11 @@ FodyWeavers.xsd
 # SPT Build Script
 ServerMod/dist
 
+# Machine-local SPT install path
+Directory.Build.props.user
+
+# Build output
+Publish/
+
 # Rider
 .idea/

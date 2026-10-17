@@ -1,21 +1,29 @@
-﻿using BepInEx;
+using BepInEx;
+using BepInEx.Unity.IL2CPP;
 using SwiftXP.SPT.ShowMeTheMoney.Client.Configuration;
 using SwiftXP.SPT.Common.Loggers;
-using SPT.Reflection.Patching;
+using SPTushonka.Reflection.Patching;
 using SwiftXP.SPT.ShowMeTheMoney.Client.Services;
 using System.Threading;
 using System;
 using SwiftXP.SPT.ShowMeTheMoney.Client.Patches;
+using SwiftXP.SPT.ShowMeTheMoney.Client.PriceColorSync;
 using SwiftXP.SPT.Common.ConfigurationManager;
 using SwiftXP.SPT.ShowMeTheMoney.Client.Contexts.Holders;
 
 namespace SwiftXP.SPT.ShowMeTheMoney.Client;
 
 [BepInPlugin("com.dark.spt.showmethemoney", MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
-[BepInDependency("com.SPT.custom", "4.1.0")]
+[BepInDependency("com.sptushonka.custom", "5.0.0")]
 [BepInDependency("com.fika.headless", BepInDependency.DependencyFlags.SoftDependency)]
+[BepInDependency("com.tyfon.uifixes", BepInDependency.DependencyFlags.SoftDependency)]
 [BepInProcess("EscapeFromTarkov.exe")]
-public class Plugin : BaseUnityPlugin, IDisposable
+#pragma warning disable CA1001 // Types that own disposable fields should be disposable
+// BepInEx drives plugin lifetime through Load()/Unload(), and Unload() below disposes both token
+// sources. Nothing would ever call Dispose() on the plugin itself, so implementing IDisposable
+// would only add a second, unreachable disposal path.
+public class Plugin : BasePlugin
+#pragma warning restore CA1001 // Types that own disposable fields should be disposable
 {
 
     public static void EnableTooltipUpdatePatch()
@@ -28,9 +36,16 @@ public class Plugin : BaseUnityPlugin, IDisposable
         s_tooltipUpdatePatch!.Disable();
     }
 
-    private void Awake()
+    /// <summary>
+    /// The live plugin instance. Price Color Sync needs it to reach the price updater.
+    /// </summary>
+    internal static Plugin? Instance { get; private set; }
+
+    public override void Load()
     {
         // Todo: Check if mod is running under fika headless.
+
+        Instance = this;
 
         SimpleSptLogger simpleSptLogger = new(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_VERSION);
         PluginConfiguration pluginConfiguration = new(Config, OnForceUpdate);
@@ -51,22 +66,47 @@ public class Plugin : BaseUnityPlugin, IDisposable
 
     private static void EnablePatches()
     {
-        new TraderClassPatch().Enable();
+        // One patch that cannot bind (for example because a game update moved a method) must not
+        // take the whole plugin down with it: ModulePatch.Enable() throws, and nothing else would
+        // be applied.
+        TryEnable(new MenuReadyPatch());
 
-        new EditBuildScreenShowPatch().Enable();
-        new EditBuildScreenClosePatch().Enable();
+        TryEnable(new EditBuildScreenShowPatch());
+        TryEnable(new EditBuildScreenClosePatch());
 
-        new GridItemOnPointerEnterPatch().Enable();
-        new GridItemOnPointerExitPatch().Enable();
+        TryEnable(new GridItemOnPointerEnterPatch());
+        TryEnable(new GridItemOnPointerExitPatch());
 
-        new InventoryScreenClosePatch().Enable();
+        TryEnable(new InventoryScreenShowPatch());
+        TryEnable(new InventoryScreenClosePatch());
 
-        new SimpleTooltipShowPatch().Enable();
+        TryEnable(new SimpleTooltipShowPatch());
+
+        // Quick-sell (integrated from spt-show-me-the-money-quick-sell).
+        TryEnable(new GridItemViewOnClickPatch());
 
         s_tooltipUpdatePatch = new TooltipUpdatePatch();
 
         if (PluginContextHolder.Current.Configuration?.FleaTaxToggleMode.IsEnabled() ?? false)
             EnableTooltipUpdatePatch();
+
+        Diagnostics.Report("all patches enabled");
+
+        // Price Color Sync installs its own Harmony patches; it is not a ModulePatch.
+        PriceColorSyncService.Initialize(PluginContextHolder.Current.Configuration);
+    }
+
+    private static void TryEnable(ModulePatch patch)
+    {
+        try
+        {
+            patch.Enable();
+        }
+        catch (Exception exception)
+        {
+            PluginContextHolder.Current?.SptLogger?
+                .LogError($"Could not enable patch {patch.GetType().Name}: {exception.Message}");
+        }
     }
 
     private void OnForceUpdate()
@@ -75,8 +115,16 @@ public class Plugin : BaseUnityPlugin, IDisposable
             _fleaPriceUpdaterService.ForceUpdate();
     }
 
-    private void OnDestroy()
+    internal void ForceFleaPriceUpdate()
     {
+        _fleaPriceUpdaterService?.ForceUpdate();
+    }
+
+    public override bool Unload()
+    {
+        PriceColorSyncService.Shutdown();
+        Instance = null;
+
         if (_fleaPriceUpdaterCancellationTokenSource != null)
         {
             _fleaPriceUpdaterCancellationTokenSource.Cancel();
@@ -90,20 +138,8 @@ public class Plugin : BaseUnityPlugin, IDisposable
             _partialRagfairConfigServiceCancellationTokenSource.Dispose();
             _partialRagfairConfigServiceCancellationTokenSource = null;
         }
-    }
 
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            OnDestroy();
-        }
+        return true;
     }
 
     private CancellationTokenSource? _fleaPriceUpdaterCancellationTokenSource;

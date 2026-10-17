@@ -1,5 +1,5 @@
 using EFT.UI;
-using SPT.Reflection.Patching;
+using SPTushonka.Reflection.Patching;
 using System.Reflection;
 using HarmonyLib;
 using SwiftXP.SPT.Common.ConfigurationManager;

@@ -1,10 +1,13 @@
 ___
-> This build targets **SPT 4.1.5** (compatible with the 4.1.x line). It is not compatible with SPT 4.0.x.
+> This build targets **SPT 5.0** (compatible with the 5.0.x line). It is not compatible with SPT 4.x.
+>
+> SPT 5.0 runs the game under **IL2CPP**, so this plugin is a BepInEx 6 plugin built against the
+> unhollowed game assemblies. Use the SPT 4.x build for 4.x installs and the SPT 3.11 build for 3.11.
 ___
 
 ___
-> **Speed up your sales!**  
-> A remarkably convenient quick-sell add-on lurks in the **Addon** tab, waiting patiently for you to notice it. If patience is not your strong suit, you may bend spacetime and simply click **[here](https://sp-mod.com/addon/1/quick-sell)**.
+> **Quick-sell is built in.**  
+> Hold a key, click an item, and it is gone — sold to a trader, listed on the flea market, or sent wherever it fetches more. No separate add-on to install any more.
 ___
 
 ## Tabs {.tabset}
@@ -25,6 +28,30 @@ That’s what SMTM does. It modifies the in-game tooltip to reveal:
 Version **1.5.0+** adds color-coding based on the World of Warcraft rarity scheme - from *poor* (grey, sad, mildly apologetic) to *legendary* (orange, smug, expensive).
 
 The server-side portion of the mod exposes an endpoint that politely hands the client mod the relevant backend configuration and flea prices.
+
+#### Quick-sell
+
+While the inventory screen is open outside of a raid, hold the quick-sell key and click an item:
+
+- **Q + Left-click** → sell to the trader who pays the most
+- **Q + Right-click** → list on the flea market at the price needed for a 100% sale chance
+- **Q + Middle-click** → whichever of the two is worth more
+
+The quick-sell add-on used to be a separate download. It is now part of this mod; if you still have `SwiftXP.SPT.ShowMeTheMoney.QuickSell.Client.dll` installed, delete it.
+
+Selecting several items at once works when [UIFixes](https://sp-mod.com/mod/1342/ui-fixes) is installed. Items of the same type are bundled into a single flea offer.
+
+#### Item background colours
+
+Integrated from [Price Color Sync](https://github.com/GPTSol6-1/PriceColorSync). Inventory item backgrounds are tinted using the same valuation the tooltip shows, with Show Me The Money's own tier thresholds and thresholds:
+
+- **Found in raid** items use the higher of the trader and flea offer.
+- **Non-FIR** items use the best trader offer by default; the flea estimate can be enabled instead.
+- **Flea-banned** items are valued and priced from traders and get a separate red background marker.
+- **Filled storage cases** are valued as empty cases, excluding their contents, and the tooltip rows are marked `(case only)`. The live case is never modified.
+- **Ammo and filled cartridge packs** can additionally show base damage and penetration.
+
+The background palette, the pricing rules and the per-frame preparation budget all live in the new `8.`–`11.` configuration sections.
 
 Everything is configured through the BepInEx Configurator.  
 And yes, the mod is designed to whisper requests to the SPT server, not shout them.
@@ -75,7 +102,7 @@ Just to be clear: Triggering this does **not** cause LiveFleaPrices itself to co
 - Traders added by other mods may or may not play nicely with the price system.  
 - The flea-tax toggle exists to maintain peace between tooltip-altering mods. If something goes wrong, let me know.
 
-### SPT 4.x Installation  
+### SPT 5.0 Installation  
 
 #### Installation
 
@@ -84,23 +111,23 @@ Just to be clear: Triggering this does **not** cause LiveFleaPrices itself to co
 1. Extract the contents of the `.zip` or `.7z` straight into your SPT directory.  
 2. When you're done, you should see:
 ```
-- C:\yourSPTfolder\BepInEx\plugins\SwiftXP.ShowMeTheMoney.dll
+- C:\yourSPTfolder\BepInEx\plugins\SwiftXP.SPT.ShowMeTheMoney.Client.dll
 - C:\yourSPTfolder\SPT_Runtime\user\mods\swiftxp-showmethemoney\SwiftXP.SPT.ShowMeTheMoney.Server.dll
 ```
 
 ##### If your client and server are separated like two star-crossed lovers:
 
 Extract the **BepInEx** folder into the client.  
-Extract the **user** folder into the server.
+Extract the **SPT_Runtime** folder into the server.
 
 Client:
 ```
-- C:\yourSPTclient\BepInEx\plugins\SwiftXP.ShowMeTheMoney.dll
+- C:\yourSPTclient\BepInEx\plugins\SwiftXP.SPT.ShowMeTheMoney.Client.dll
 ```
 
 Server:
 ```
-- C:\yourSPTserver\SPT\user\mods\swiftxp-showmethemoney\SwiftXP.SPT.ShowMeTheMoney.Server.dll
+- C:\yourSPTserver\SPT_Runtime\user\mods\swiftxp-showmethemoney\SwiftXP.SPT.ShowMeTheMoney.Server.dll
 ```
 
 ### SPT 3.11.x Installation  
@@ -141,7 +168,10 @@ Server:
 ```
 
 ### FAQ  
-*(Last updated Sep 10, 2026 — SMTM v3.0.2)*
+*(Last updated Oct 17, 2026 — SMTM v4.2.0)*
+
+> The armour-plate and key-durability answers below were written against the 4.x line and have not
+> been re-verified against SPT 5.0.
 
 - **How do I install SMTM?**  
   - Extract the folders into your SPT directory. If that sounds too simple, consult the installation section(s).
@@ -184,6 +214,19 @@ Server:
 {.endtabset}
 
 ---
+
+### Building from source
+
+The projects reference assemblies straight out of an SPT 5.0 install, so point the build at one:
+
+1. Copy `Directory.Build.props.user.example` to `Directory.Build.props.user`.
+2. Set `SptRoot` to your SPT 5.0 folder (the one holding `EscapeFromTarkov.exe`). `SPT_ROOT` or
+   `/p:SptRoot=...` work too.
+3. `dotnet publish -c Release` on each project. Output lands in `Publish/`, laid out the same way as
+   the release archive.
+
+The client plugin is `net10.0` and compiles against `BepInEx/core`, `BepInEx/interop` and
+`BepInEx/plugins/sptushonka`; the server mod is `net10.0` and compiles against `SPT_Runtime`.
 
 #### Support & Feature Requests
 

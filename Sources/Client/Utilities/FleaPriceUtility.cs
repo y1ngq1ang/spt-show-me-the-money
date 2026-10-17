@@ -60,7 +60,7 @@ public static class FleaPriceUtility
         return tradeItem.FleaPrice is not null;
     }
 
-    private static double GetWeaponPrice(Weapon weapon, double staticWeaponPrice)
+    internal static double GetWeaponPrice(Weapon weapon, double staticWeaponPrice)
     {
         double totalWeaponPrice = staticWeaponPrice;
 
@@ -73,7 +73,7 @@ public static class FleaPriceUtility
         return totalWeaponPrice;
     }
 
-    private static void SetFleaPriceOfTradeItem(TradeItem tradeItem, double fleaPrice, bool includeTaxInPrices)
+    internal static void SetFleaPriceOfTradeItem(TradeItem tradeItem, double fleaPrice, bool includeTaxInPrices)
     {
         int fleaPriceAfterMultiply = (int)Math.Round(fleaPrice * (double)PluginContextHolder.Current!.Configuration!.FleaPriceMultiplicand.GetValue());
 
@@ -112,9 +112,8 @@ public static class FleaPriceUtility
     {
         try
         {
-            string fleaMarketName = "RAG FAIR".Localized(null);
-            return fleaMarketName.First().ToString().ToUpperInvariant()
-                + fleaMarketName.ToLowerInvariant().Substring(1);
+            string fleaMarketName = "RAG FAIR".Localized(null).ToLowerInvariant();
+            return char.ToUpperInvariant(fleaMarketName[0]) + fleaMarketName[1..];
         }
         catch (Exception) { }
 

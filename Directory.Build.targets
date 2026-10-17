@@ -1,8 +1,19 @@
 <Project>
+
+  <!-- Each project declares which half of SPT it needs, so a split client/server install only has
+       to provide the corresponding folder. -->
   <Target Name="EnsureSptRoot" BeforeTargets="BeforeBuild;ResolveAssemblyReferences">
     <Error Condition="'$(SptRoot)' == ''"
            Text="SPT path is not set. Copy Directory.Build.props.user.example to Directory.Build.props.user and set SptRoot, or pass /p:SptRoot=..., or set the SPT_ROOT environment variable." />
-    <Error Condition="'$(SptRoot)' != '' and !Exists('$(SptManaged)\Assembly-CSharp.dll')"
-           Text="SptRoot '$(SptRoot)' does not look like an SPT install (missing EscapeFromTarkov_Data\Managed\Assembly-CSharp.dll)." />
+
+    <Error Condition="'$(SptRoot)' != '' and !Exists('$(SptRoot)\EscapeFromTarkov.exe')"
+           Text="SptRoot '$(SptRoot)' does not look like an SPT install (missing EscapeFromTarkov.exe)." />
+
+    <Error Condition="'$(SptComponent)' == 'Client' and !Exists('$(SptInterop)\Assembly-CSharp.dll')"
+           Text="SptRoot '$(SptRoot)' is missing BepInEx\interop\Assembly-CSharp.dll, so it is not an IL2CPP (SPT 5.0) install." />
+
+    <Error Condition="'$(SptComponent)' == 'Server' and !Exists('$(SptRuntime)\SPTarkov.Server.Core.dll')"
+           Text="SptRoot '$(SptRoot)' is missing SPT_Runtime\SPTarkov.Server.Core.dll." />
   </Target>
+
 </Project>

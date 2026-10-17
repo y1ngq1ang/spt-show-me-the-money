@@ -1,8 +1,8 @@
 using System;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
-using SPT.Common.Http;
+using SPTushonka.Common.Http;
 using SwiftXP.SPT.Common.Loggers;
 using SwiftXP.SPT.ShowMeTheMoney.Client.Data;
 using SwiftXP.SPT.ShowMeTheMoney.Client.Data.Holders;
@@ -20,10 +20,8 @@ public class PartialRagfairConfigService(ISimpleSptLogger simpleSptLogger)
             if (cancellationToken.IsCancellationRequested)
                 return;
 
-            PartialRagfairConfig? partialRagfairConfig = await Task.Run(() =>
-            {
-                return JsonConvert.DeserializeObject<PartialRagfairConfig>(jsonResult);
-            });
+            PartialRagfairConfig? partialRagfairConfig = JsonSerializer.Deserialize<PartialRagfairConfig>(
+                jsonResult, Constants.JsonOptions);
 
             if (cancellationToken.IsCancellationRequested)
                 return;

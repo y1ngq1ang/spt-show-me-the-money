@@ -139,8 +139,9 @@ public class TradePrice
     {
         get
         {
-            if (CurrencyId.HasValue)
-                return CurrencyUtil.GetCurrencyCharById(CurrencyId.Value);
+            // MongoID is a reference type under IL2CPP, so "no currency" is a null check, not HasValue.
+            if (CurrencyId is not null)
+                return CurrencyUtil.GetCurrencyCharById(CurrencyId);
 
             return "₽";
         }

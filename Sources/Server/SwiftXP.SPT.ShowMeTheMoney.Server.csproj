@@ -3,10 +3,14 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
-    <Version>3.0.2</Version>
+    <Version>4.2.0</Version>
+    <SptComponent>Server</SptComponent>
 
     <PlatformTarget>AnyCPU</PlatformTarget>
     <Prefer32Bit>false</Prefer32Bit>
+
+    <!-- The SPT server ships all of these assemblies; never copy them next to the mod dll. -->
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
 
     <AssemblyName>SwiftXP.SPT.ShowMeTheMoney.Server</AssemblyName>
     <Product>Show Me The Money</Product>
@@ -27,17 +31,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="$(MSBuildThisFileDirectory)/../Common/Sources/Common/Runtime/AppMetadata.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)/../Common/Runtime/AppMetadata.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="$(SptRuntime)\SPTarkov.Common.dll" Private="false" />
-    <Reference Include="$(SptRuntime)\SPTarkov.DI.dll" Private="false" />
-    <Reference Include="$(SptRuntime)\SPTarkov.Server.Core.dll" Private="false" />
-    <Reference Include="$(SptRuntime)\SemanticVersioning.dll" Private="false" />
+    <Reference Include="SPTarkov.Common" HintPath="$(SptRuntime)\SPTarkov.Common.dll" Private="false" />
+    <Reference Include="SPTarkov.DI" HintPath="$(SptRuntime)\SPTarkov.DI.dll" Private="false" />
+    <Reference Include="SPTarkov.Server.Core" HintPath="$(SptRuntime)\SPTarkov.Server.Core.dll" Private="false" />
+    <Reference Include="SemanticVersioning" HintPath="$(SptRuntime)\SemanticVersioning.dll" Private="false" />
   </ItemGroup>
 
-  <Target Name="GenerateLicenseFile" AfterTargets="Publish">
+  <Target Name="GenerateLicenseFile" AfterTargets="Publish" Condition="Exists('$(LicenseToolPath)')">
     <Message Text="Generating license file..." Importance="high" />
 
     <Exec
@@ -49,15 +53,19 @@
     <Message Text="License file generated." Importance="high" />
   </Target>
 
-  <Target Name="CopyToPublishFolder" AfterTargets="GenerateLicenseFile">
+  <Target Name="GenerateLicenseFileSkipped" AfterTargets="Publish" Condition="!Exists('$(LicenseToolPath)')">
+    <Message Text="Skipping license file: $(LicenseToolPath) is not installed (dotnet tool install -g dotnet-project-licenses)." Importance="high" />
+  </Target>
+
+  <Target Name="CopyToPublishFolder" AfterTargets="GenerateLicenseFile;GenerateLicenseFileSkipped">
     <Message Text="Copying published files to /Publish folder..." Importance="high" />
 
     <ItemGroup>
       <PublishedFiles Include="$(PublishDir)SwiftXP.SPT.ShowMeTheMoney.Server.dll" />
-      <PublishedFiles Include="$(PublishDir)SwiftXP.SPT.ShowMeTheMoney.Server.LICENSES.txt" />
+      <PublishedFiles Include="$(PublishDir)SwiftXP.SPT.ShowMeTheMoney.Server.LICENSES.txt" Condition="Exists('$(PublishDir)SwiftXP.SPT.ShowMeTheMoney.Server.LICENSES.txt')" />
     </ItemGroup>
 
     <Copy SourceFiles="@(PublishedFiles)"
-      DestinationFolder="$(MSBuildProjectDirectory)/../../Publish/SPT/user/mods/swiftxp-showmethemoney" />
+      DestinationFolder="$(MSBuildProjectDirectory)/../../Publish/SPT_Runtime/user/mods/swiftxp-showmethemoney" />
   </Target>
 </Project>

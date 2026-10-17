@@ -4,8 +4,19 @@
 
   <PropertyGroup>
     <SptRoot Condition="'$(SptRoot)' == '' and '$(SPT_ROOT)' != ''">$(SPT_ROOT)</SptRoot>
-    <SptManaged>$(SptRoot)\EscapeFromTarkov_Data\Managed</SptManaged>
+  </PropertyGroup>
+
+  <!-- Client side: SPT 5.0 ships an IL2CPP game, so the old EscapeFromTarkov_Data\Managed
+       folder is gone. Game types now come from the BepInEx unhollowed interop assemblies. -->
+  <PropertyGroup>
     <SptBepInEx>$(SptRoot)\BepInEx</SptBepInEx>
+    <SptCore>$(SptBepInEx)\core</SptCore>
+    <SptInterop>$(SptBepInEx)\interop</SptInterop>
+    <Sptushonka>$(SptBepInEx)\plugins\sptushonka</Sptushonka>
+  </PropertyGroup>
+
+  <!-- Server side: the SPT server assemblies live next to the launcher in SPT_Runtime. -->
+  <PropertyGroup>
     <SptRuntime>$(SptRoot)\SPT_Runtime</SptRuntime>
   </PropertyGroup>
 </Project>

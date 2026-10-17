@@ -1,11 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
-using SPT.Common.Http;
+using SPTushonka.Common.Http;
 using SwiftXP.SPT.Common.ConfigurationManager;
 using SwiftXP.SPT.Common.EFT;
 using SwiftXP.SPT.Common.Loggers;
@@ -19,7 +17,6 @@ public class FleaPriceUpdaterService(ISimpleSptLogger simpleSptLogger)
     public async Task ContinuouslyUpdateFleaPricesAsync(CancellationToken cancellationToken)
     {
         TimeSpan interval = TimeSpan.FromSeconds(30);
-        JsonSerializer serializer = new();
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -32,25 +29,16 @@ public class FleaPriceUpdaterService(ISimpleSptLogger simpleSptLogger)
                 {
                     _forceUpdate = false;
 
-                    using HttpRequestMessage requestMessage =
-                        RequestHandler.HttpClient.CreateNewHttpRequest(HttpMethod.Get, Constants.RemotePathToGetFleaPrices);
-
-                    using HttpResponseMessage response = await RequestHandler.HttpClient.HttpClient.SendAsync(requestMessage, cancellationToken);
-                    response.EnsureSuccessStatusCode();
+                    // Must go through SPTushonka's RequestHandler: it unwraps the framing SPT 5.0
+                    // applies to every non-launcher route. Calling the underlying HttpClient directly
+                    // hands back a still-shuffled payload that no JSON reader can make sense of.
+                    byte[] payload = await RequestHandler.GetDataAsync(Constants.RemotePathToGetFleaPrices);
 
                     if (cancellationToken.IsCancellationRequested)
                         break;
 
-                    using Stream contentStream = await response.Content.ReadAsStreamAsync();
-                    using StreamReader streamReader = new(contentStream);
-
-                    using JsonTextReader jsonTextReader = new(streamReader);
-                    jsonTextReader.FloatParseHandling = FloatParseHandling.Double;
-
-                    Dictionary<string, double>? fleaPrices = await Task.Run(() =>
-                    {
-                        return serializer.Deserialize<Dictionary<string, double>>(jsonTextReader);
-                    });
+                    Dictionary<string, double>? fleaPrices = JsonSerializer.Deserialize<Dictionary<string, double>>(
+                        payload, Constants.JsonOptions);
 
                     if (cancellationToken.IsCancellationRequested)
                         break;
